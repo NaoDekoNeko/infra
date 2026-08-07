@@ -3,7 +3,7 @@ name: CD
 on:
   push:
     branches: [main]
-    paths: ["terraform/**"]
+    paths: ["terraform/**", "k8s/**"]
   workflow_dispatch: {}
 
 permissions:
@@ -55,3 +55,15 @@ jobs:
             --set controller.ingressClass.name=nginx \
             --set controller.service.type=LoadBalancer \
             --wait
+
+      - name: Install cert-manager
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+          helm upgrade --install cert-manager jetstack/cert-manager \
+            --namespace cert-manager --create-namespace \
+            --set crds.enabled=true \
+            --wait
+
+      - name: Apply Let's Encrypt ClusterIssuer
+        run: kubectl apply -f k8s/cluster-issuer.yaml
