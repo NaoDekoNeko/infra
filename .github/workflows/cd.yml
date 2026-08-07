@@ -3,7 +3,7 @@ name: CD
 on:
   push:
     branches: [main]
-    paths: ["terraform/**"]
+    paths: ["terraform/**", "k8s/**"]
   workflow_dispatch: {}
 
 permissions:
@@ -33,6 +33,9 @@ jobs:
       - run: terraform init
       - run: terraform apply -auto-approve
 
+      - name: Read cert-manager identity client ID
+        run: echo "CERT_MANAGER_CLIENT_ID=$(terraform output -raw cert_manager_identity_client_id)" >> "$GITHUB_ENV"
+
       - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -55,3 +58,25 @@ jobs:
             --set controller.ingressClass.name=nginx \
             --set controller.service.type=LoadBalancer \
             --wait
+
+      - name: Install cert-manager
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+          helm upgrade --install cert-manager jetstack/cert-manager \
+            --namespace cert-manager --create-namespace \
+            --set crds.enabled=true \
+            --set "serviceAccount.annotations.azure\.workload\.identity/client-id=$CERT_MANAGER_CLIENT_ID" \
+            --set-string "podLabels.azure\.workload\.identity/use=true" \
+            --wait
+
+      - name: Apply Let's Encrypt ClusterIssuer
+        working-directory: .
+        env:
+          ACME_EMAIL: ${{ secrets.ACME_EMAIL }}
+        run: |
+          sed \
+            -e "s#CERT_MANAGER_CLIENT_ID_PLACEHOLDER#$CERT_MANAGER_CLIENT_ID#" \
+            -e "s#AZURE_SUBSCRIPTION_ID_PLACEHOLDER#$ARM_SUBSCRIPTION_ID#" \
+            -e "s#ACME_EMAIL_PLACEHOLDER#$ACME_EMAIL#" \
+            k8s/cluster-issuer.yaml | kubectl apply -f -
