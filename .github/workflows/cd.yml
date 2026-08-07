@@ -33,6 +33,9 @@ jobs:
       - run: terraform init
       - run: terraform apply -auto-approve
 
+      - name: Read cert-manager identity client ID
+        run: echo "CERT_MANAGER_CLIENT_ID=$(terraform output -raw cert_manager_identity_client_id)" >> "$GITHUB_ENV"
+
       - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -63,8 +66,10 @@ jobs:
           helm upgrade --install cert-manager jetstack/cert-manager \
             --namespace cert-manager --create-namespace \
             --set crds.enabled=true \
+            --set "serviceAccount.annotations.azure\.workload\.identity/client-id=$CERT_MANAGER_CLIENT_ID" \
+            --set "podLabels.azure\.workload\.identity/use=true" \
             --wait
 
       - name: Apply Let's Encrypt ClusterIssuer
         working-directory: .
-        run: kubectl apply -f k8s/cluster-issuer.yaml
+        run: sed "s#CERT_MANAGER_CLIENT_ID_PLACEHOLDER#$CERT_MANAGER_CLIENT_ID#" k8s/cluster-issuer.yaml | kubectl apply -f -
