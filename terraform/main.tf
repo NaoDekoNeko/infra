@@ -35,6 +35,9 @@ resource "azurerm_kubernetes_cluster" "aks" {
   node_provisioning_profile {
     mode = "Manual"
   }
+
+  oidc_issuer_enabled       = true
+  workload_identity_enabled = true
 }
 
 resource "azurerm_role_assignment" "aks_acr_pull" {

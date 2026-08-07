@@ -9,10 +9,11 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-prod-key
     solvers:
-      - http01:
-          ingress:
-            ingressClassName: nginx
-            ingressTemplate:
-              metadata:
-                annotations:
-                  nginx.org/ssl-redirect: "false"
+      - dns01:
+          azureDNS:
+            subscriptionID: "15e44e60-4c16-4a64-8ec5-e98272cf8977"
+            resourceGroupName: rg-mibanco-challenge
+            hostedZoneName: naodeko.site
+            environment: AzurePublicCloud
+            managedIdentity:
+              clientID: CERT_MANAGER_CLIENT_ID_PLACEHOLDER
