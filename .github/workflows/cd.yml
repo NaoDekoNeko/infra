@@ -66,4 +66,5 @@ jobs:
             --wait
 
       - name: Apply Let's Encrypt ClusterIssuer
+        working-directory: .
         run: kubectl apply -f k8s/cluster-issuer.yaml
